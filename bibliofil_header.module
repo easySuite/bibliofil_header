@@ -543,15 +543,26 @@ function _bibliofil_header_search_settings_form(&$form, &$form_state, $theme_set
   ];
 }
 
+/**
+ * Submit handler for the "add-one-more" button.
+ *
+ * Increments the max counter and call a rebuild.
+ */
 function bibliofil_header_actions_add_more_add_one($form, &$form_state) {
   $form_state['header_actions']++;
   $form_state['rebuild'] = TRUE;
 }
 
+/**
+ * Callback for actions ajax-enabled button.
+ */
 function bibliofil_header_actions_add_more_callback($form, $form_state) {
   return $form['bibliofil_header']['bibliofil_header_actions'];
 }
 
+/**
+ * Logo images upload validation handler.
+ */
 function bibliofil_header_custom_validate($form, &$form_state) {
   // Handle file uploads.
   $validators = ['file_validate_is_image' => []];
@@ -599,6 +610,9 @@ function bibliofil_header_custom_validate($form, &$form_state) {
   }
 }
 
+/**
+ * Custom theme settings form submit handler.
+ */
 function bibliofil_header_custom_submit($form, &$form_state) {
   // Exclude unnecessary elements before saving.
   form_state_values_clean($form_state);
