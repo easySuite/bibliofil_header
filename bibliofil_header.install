@@ -1,0 +1,19 @@
+<?php
+
+/**
+ * @file
+ */
+
+/**
+ * Implements hook_install().
+ */
+function bibliofil_header_install() {
+  // Create bibliofil-header menu.
+  $menu = [
+    'title' => 'Bibliofil Header',
+    'description' => 'Bibliofil Header custom menu.',
+    'menu_name' => 'bibliofil-header-menu',
+  ];
+
+  menu_save($menu);
+}

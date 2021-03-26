@@ -1,0 +1,4 @@
+name = "Bibliofil Header"
+description = "Bibliofil Header configuration builder"
+package = Bibliofil
+core = 7.x

@@ -1,0 +1,668 @@
+<?php
+
+/**
+ * @file
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function bibliofil_header_menu() {
+  $items['bibliofil-header/bibliofil-header'] = [
+    'title' => 'Bibliofil header configuration',
+    'page callback' => 'bibliofil_header_config_js',
+    'access callback' => TRUE,
+    'type' => MENU_NORMAL_ITEM,
+  ];
+
+  $items['bibliofil-header/bibliofil-header.js'] = [
+    'title' => 'Bibliofil header configuration',
+    'page callback' => 'bibliofil_header_config_js',
+    'access callback' => TRUE,
+    'type' => MENU_NORMAL_ITEM,
+  ];
+
+  return $items;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function bibliofil_header_theme($existing, $type, $theme, $path) {
+  return [
+    'bibliofil_header_wrapper' => [
+      'render' => 'element',
+      'variables' => ['data' => []],
+      'template' => 'templates/bibliofil-header-wrapper',
+    ],
+    'bibliofil_header_actions' => [
+      'variables' => [
+        'actions' => NULL,
+      ],
+      'template' => 'templates/bibliofil-header-actions',
+    ],
+    'bibliofil_header_search' => [
+      'variables' => [
+        'search' => NULL,
+      ],
+      'template' => 'templates/bibliofil-header-search',
+    ],
+  ];
+}
+
+function bibliofil_header_config_js() {
+  global $base_url;
+  $theme_settings = variable_get('theme_bibliofil_settings', NULL);
+
+  drupal_page_is_cacheable(FALSE);
+  drupal_add_http_header('Content-Type', 'application/javascript');
+
+  // Menu links.
+  $menu_links = menu_load_links('bibliofil-header-menu');
+
+  $menu_items = [];
+  foreach ($menu_links as $item) {
+    $menu_items[] = [
+      'title' => $item['link_title'],
+      'href' => '/' . $item['link_path'],
+    ];
+  }
+
+  $links = drupal_json_encode($menu_items);
+
+  // Skin.
+  $skin = $theme_settings['bibliofil_header_skin'];
+  $opac_url = $theme_settings['bibliofil_header_opac_url'];
+
+  // Search
+  $search_settings = [];
+  $search_settings['type'] = $theme_settings['bibliofil_header_search_type'];
+
+  if ($theme_settings['bibliofil_header_search_type_auto'] !== 0) {
+    $search_settings['type'] = 'isFrontPage ? "inline" : "foldable",';
+  }
+  else {
+    $search_settings['type'] = $theme_settings['bibliofil_header_search_type'];
+  }
+
+  $search_settings['icon'] = $theme_settings['bibliofil_header_search_icon'];
+  $search_settings['placeholder'] = $theme_settings['bibliofil_header_search_placeholder'];
+  $search_settings['closeButton'] = [
+    'icon' => $theme_settings['cb_icon'],
+    'title' => $theme_settings['cb_title'],
+  ];
+  $search_settings['suggestionsView'] = $theme_settings['bibliofil_header_search_suggestions_view'];
+
+  if ($theme_settings['bibliofil_header_search_suggestions_view'] == 'two-columns') {
+    $search_settings['suggestionsViewStyle'] = [
+      'gap' => $theme_settings['gap'],
+      'gapCalculation' => $theme_settings['gap_calc'],
+      'leftColumnWidth' => $theme_settings['l_col_width'],
+      'rightColumnWidth' => $theme_settings['r_col_width'],
+    ];
+  }
+
+  $search_settings['suggestions'] = [];
+  if (!empty($theme_settings['bibliofil_header_search_opac_suggestions'])) {
+    $opac_suggestion = [];
+    $opac_suggestion['suggester'] = 'new window.LightweightSuggester({baseUrl: "' . $opac_url . '", query: {"instans": "m2-cms"}})';
+    $opac_suggestion['minimalQueryLength'] = 3;
+    $opac_suggestion['inputTimeout'] = 250;
+    $opac_suggestion['materials'] = [
+      'title' => 'Populære titler',
+    ];
+    $opac_suggestion['authors'] = [
+      'title' => 'Populære forfattere',
+    ];
+    $opac_suggestion['spellcheck'] = [
+      'title' => 'Søkeforslag fra stavekontroll',
+      'amount' => 4,
+    ];
+
+    $search_settings['suggestions']['opac'] = $opac_suggestion;
+  }
+
+  if (!empty($theme_settings['bibliofil_header_search_editorial_suggestions'])) {
+    $editorial_suggestions = [];
+    $editorial_suggestions['suggester'] = 'new window.LightweightAutocomplete({baseUrl: "' . $theme_settings['bibliofil_header_client_base_url'] . '/ting/autocomplete/"})';
+    $editorial_suggestions['minimalQueryLength'] = 3;
+    $editorial_suggestions['inputTimeout'] = 250;
+    $editorial_suggestions['editorial'] = [
+      'title' => "Redaksjonelle søkeforslag",
+      'noResult' => "<i>Ingen treff i det redaksjonelle universet</i>",
+    ];
+    $search_settings['suggestions']['editorial'] = $editorial_suggestions;
+  }
+
+  $search_settings = theme('bibliofil_header_search', ['search' => $search_settings]);
+
+  // Logos.
+  $logos = [];
+  if (!empty($theme_settings['floating_logo_path'])) {
+    $logos['floating'] = file_create_url($theme_settings['floating_logo_path']);
+  }
+  if (!empty($theme_settings['static_logo_path'])) {
+    $logos['static'] = file_create_url($theme_settings['static_logo_path']);
+  }
+  $logos = drupal_json_encode($logos);
+
+  // Actions.
+  foreach ($theme_settings['bibliofil_header_actions'] as $key => $bibliofil_header_action) {
+    if (!empty($bibliofil_header_action['href'])) {
+      $theme_settings['bibliofil_header_actions'][$key]['href'] = $theme_settings['bibliofil_header_opac_url'] . $bibliofil_header_action['href'];
+    }
+  }
+
+  $header_actions = theme('bibliofil_header_actions', ['actions' => $theme_settings['bibliofil_header_actions']]);
+  $header_actions = str_replace("\r\n", '', $header_actions);
+
+  $export = [
+    'clientBaseUrl' => $theme_settings['bibliofil_header_client_base_url'],
+    'client' => $theme_settings['bibliofil_header_client'],
+    'storageBaseUrl' => $theme_settings['bibliofil_header_storage_base_url'],
+    'suggestionsDomain' => $theme_settings['bibliofil_header_opac_url'],
+    'skin' => $skin,
+    'logos' => $logos,
+    'links' => $links,
+    'opac_url' => $opac_url,
+    'base_url' => $base_url,
+    'search' => $search_settings,
+    'actions' => $header_actions,
+  ];
+
+  echo theme('bibliofil_header_wrapper', ['data' => $export]);
+}
+
+/**
+ * Implements hook_form_system_theme_settings_alter().
+ */
+function bibliofil_header_form_system_theme_settings_alter(&$form, &$form_state) {
+  if ($form_state['build_info']['args'][0] == 'bibliofil') {
+    $theme_settings = variable_get('theme_bibliofil_settings');
+
+    $form['bibliofil_header'] = [
+      '#type' => 'fieldset',
+      '#title' => t('Bibliofil Header'),
+      '#description' => t('Custom header settings.'),
+      '#collapsible' => TRUE,
+      '#collapsed' => FALSE,
+      '#weight' => -10,
+    ];
+
+    _bibliofil_header_general_settings_form($form, $form_state, $theme_settings);
+    _bibliofil_header_logos_settings_form($form, $form_state, $theme_settings);
+    _bibliofil_header_actions_settings_form($form, $form_state, $theme_settings);
+    _bibliofil_header_search_settings_form($form, $form_state, $theme_settings);
+
+    $form['#submit'][] = 'bibliofil_header_custom_submit';
+    $form['#validate'][] = 'bibliofil_header_custom_validate';
+  }
+}
+
+/**
+ * General settings form definition.
+ */
+function _bibliofil_header_general_settings_form(&$form, &$form_state, $theme_settings) {
+  $form['bibliofil_header']['general'] = [
+    '#type' => 'fieldset',
+    '#title' => t('General settings'),
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+  ];
+
+  $form['bibliofil_header']['general']['bibliofil_header_config_service_url'] = [
+    '#type' => 'textfield',
+    '#title' => t('Config service URL'),
+    '#description' => t('Path to bibliofil-header library. Default: http://storage.easyting.dk/bibliofil/config'),
+    '#default_value' => $theme_settings['bibliofil_header_config_service_url'] ?? 'http://storage.easyting.dk/bibliofil/config',
+  ];
+
+  $form['bibliofil_header']['general']['bibliofil_header_client'] = [
+    '#type' => 'textfield',
+    '#title' => t('Client'),
+    '#description' => t('The client hash.'),
+    '#default_value' => $theme_settings['bibliofil_header_client'] ?? '',
+  ];
+
+  $form['bibliofil_header']['general']['bibliofil_header_opac_url'] = [
+    '#type' => 'textfield',
+    '#title' => t('OPAC URL'),
+    '#description' => t('The domain of search suggestion modules.'),
+    '#default_value' => $theme_settings['bibliofil_header_opac_url'] ?? '',
+  ];
+
+  $form['bibliofil_header']['general']['bibliofil_header_client_base_url'] = [
+    '#type' => 'textfield',
+    '#title' => t('Client base URL'),
+    '#description' => t('The domain with protocol of the client.'),
+    '#default_value' => $theme_settings['bibliofil_header_client_base_url'] ?? '',
+  ];
+
+  $form['bibliofil_header']['general']['bibliofil_header_storage_base_url'] = [
+    '#type' => 'textfield',
+    '#title' => t('Storage base URL'),
+    '#description' => t('The storage base url for dependencies.'),
+    '#default_value' => $theme_settings['bibliofil_header_storage_base_url'] ?? '',
+  ];
+
+  $form['bibliofil_header']['general']['bibliofil_header_skin'] = [
+    '#type' => 'textfield',
+    '#title' => t('Skin'),
+    '#description' => t('Optional, name of the predefined skin. Default disabled. Possble values: "bibliofil".'),
+    '#default_value' => $theme_settings['bibliofil_header_skin'] ?? 'bibliofil',
+  ];
+}
+
+/**
+ * Floating and static logo images uploading settings form definition.
+ */
+function _bibliofil_header_logos_settings_form(&$form, &$form_state, $theme_settings) {
+  $form['bibliofil_header']['logos'] = [
+    '#type' => 'fieldset',
+    '#title' => t('Logos'),
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+  ];
+
+  // Logo settings
+  $form['bibliofil_header']['logos']['floating'] = [
+    '#type' => 'fieldset',
+    '#title' => t('Floating logo image settings'),
+  ];
+
+  $form['bibliofil_header']['logos']['floating']['settings'] = [
+    '#type' => 'container',
+  ];
+
+  $form['bibliofil_header']['logos']['floating']['settings']['floating_logo_path'] = [
+    '#type' => 'textfield',
+    '#title' => t('Path to custom logo'),
+    '#description' => t('The path to the file you would like to use as your floating logo file.'),
+    '#default_value' => $theme_settings['floating_logo_path'] ?? '',
+  ];
+  $form['bibliofil_header']['logos']['floating']['settings']['floating_logo_upload'] = [
+    '#type' => 'file',
+    '#title' => t('Upload logo image'),
+    '#maxlength' => 40,
+    '#description' => t("If you don't have direct file access to the server, use this field to upload your logo."),
+  ];
+
+  $form['bibliofil_header']['logos']['static'] = [
+    '#type' => 'fieldset',
+    '#title' => t('Static logo image settings'),
+  ];
+
+  $form['bibliofil_header']['logos']['static']['settings'] = [
+    '#type' => 'container',
+  ];
+
+  $form['bibliofil_header']['logos']['static']['settings']['static_logo_path'] = [
+    '#type' => 'textfield',
+    '#title' => t('Path to static logo'),
+    '#description' => t('The path to the file you would like to use as your static logo file.'),
+    '#default_value' => $theme_settings['static_logo_path'] ?? '',
+  ];
+  $form['bibliofil_header']['logos']['static']['settings']['static_logo_upload'] = [
+    '#type' => 'file',
+    '#title' => t('Upload static logo image'),
+    '#maxlength' => 40,
+    '#description' => t("If you don't have direct file access to the server, use this field to upload your logo."),
+  ];
+
+  // Inject human-friendly values for floating and static logo images.
+  foreach ([
+             'floating' => 'floating_logo',
+             'static' => 'static_logo',
+           ] as $key => $type) {
+    if (isset($form['bibliofil_header']['logos'][$key]['settings'][$type . '_path'])) {
+      $element = &$form['bibliofil_header']['logos'][$key]['settings'][$type . '_path'];
+
+      // If path is a public:// URI, display the path relative to the files
+      // directory; stream wrappers are not end-user friendly.
+      $original_path = $element['#default_value'];
+      $friendly_path = NULL;
+      if (file_uri_scheme($original_path) == 'public') {
+        $friendly_path = file_uri_target($original_path);
+        $element['#default_value'] = $friendly_path;
+      }
+    }
+  }
+}
+
+/**
+ * Actions settings form definition.
+ */
+function _bibliofil_header_actions_settings_form(&$form, &$form_state, $theme_settings) {
+  $form['bibliofil_header']['bibliofil_header_actions'] = [
+    '#type' => 'fieldset',
+    '#title' => t('Actions'),
+    '#description' => t('Navigation action buttons, placed in right part of navigation.'),
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+    '#prefix' => '<div id="actions-fieldset-wrapper">',
+    '#suffix' => '</div>',
+    '#tree' => TRUE,
+  ];
+
+  $actions = $theme_settings['bibliofil_header_actions'] ?? [];
+
+  if (empty($form_state['header_actions'])) {
+    $form_state['header_actions'] = 1;
+  }
+
+  $count = (int) count($actions);
+
+  for ($i = 0; $i < $count + 1; $i++) {
+    $form['bibliofil_header']['bibliofil_header_actions'][$i] = [
+      '#type' => 'fieldset',
+      '#title' => empty($actions[$i]['uid']) ? t('Action') : t('Action \'@uid\'', ['@uid' => $actions[$i]['uid']]),
+      '#collapsible' => TRUE,
+      '#collapsed' => empty($actions[$i]['uid']) ? FALSE : TRUE,
+    ];
+
+    $form['bibliofil_header']['bibliofil_header_actions'][$i]['uid'] = [
+      '#type' => 'textfield',
+      '#title' => t('Action ID'),
+      '#description' => t('Bibliofil header config action\'s uid value.'),
+      '#default_value' => $actions[$i]['uid'] ?? '',
+    ];
+    $form['bibliofil_header']['bibliofil_header_actions'][$i]['icon'] = [
+      '#type' => 'textfield',
+      '#title' => t('Action icon'),
+      '#description' => t('Bibliofil header config action\'s icon value.'),
+      '#default_value' => $actions[$i]['icon'] ?? '',
+    ];
+    $form['bibliofil_header']['bibliofil_header_actions'][$i]['title'] = [
+      '#type' => 'textfield',
+      '#title' => t('Action title'),
+      '#description' => t('Bibliofil header config action\'s title value.'),
+      '#default_value' => $actions[$i]['title'] ?? '',
+    ];
+    $form['bibliofil_header']['bibliofil_header_actions'][$i]['href'] = [
+      '#type' => 'textfield',
+      '#title' => t('Action href'),
+      '#description' => t('Bibliofil header config action\'s href value.'),
+      '#default_value' => $actions[$i]['href'] ?? '',
+    ];
+
+    $form['bibliofil_header']['bibliofil_header_actions'][$i]['on_click'] = [
+      '#type' => 'textarea',
+      '#title' => t('On action click'),
+      '#default_value' => $actions[$i]['on_click'] ?? '',
+    ];
+    $form['bibliofil_header']['bibliofil_header_actions'][$i]['on_mount'] = [
+      '#type' => 'textarea',
+      '#title' => t('On action mount'),
+      '#default_value' => $actions[$i]['on_mount'] ?? '',
+    ];
+  }
+
+  $form['bibliofil_header']['bibliofil_header_actions']['add_action'] = [
+    '#type' => 'submit',
+    '#value' => t('Add action'),
+    '#submit' => ['bibliofil_header_actions_add_more_add_one'],
+    '#ajax' => [
+      'callback' => 'bibliofil_header_actions_add_more_callback',
+      'wrapper' => 'actions-fieldset-wrapper',
+    ],
+  ];
+}
+
+/**
+ * Search and suggestions settings form definition.
+ */
+function _bibliofil_header_search_settings_form(&$form, &$form_state, $theme_settings) {
+  $form['bibliofil_header']['bibliofil_header_search_settings'] = [
+    '#type' => 'fieldset',
+    '#title' => t('Search settings'),
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+  ];
+
+  $form['bibliofil_header']['bibliofil_header_search_settings']['bibliofil_header_search_type_auto'] = [
+    '#type' => 'checkbox',
+    '#title' => t('Search type auto select'),
+    '#description' => t('If this checked then search box will be inlined for frontpage and folded for other pages.'),
+    '#default_value' => $theme_settings['bibliofil_header_search_type_auto'] ?? 1,
+  ];
+
+  $form['bibliofil_header']['bibliofil_header_search_settings']['bibliofil_header_search_type'] = [
+    '#type' => 'select',
+    '#title' => t('Search type'),
+    '#options' => [
+      'inline' => t('Inline'),
+      'foldable' => t('Foldable'),
+    ],
+    '#default_value' => $theme_settings['bibliofil_header_search_type'] ?? 'inline',
+    '#states' => [
+      'invisible' => [
+        'input[name="bibliofil_header_search_type_auto"]' => ['checked' => TRUE],
+      ],
+    ],
+  ];
+
+  $form['bibliofil_header']['bibliofil_header_search_settings']['bibliofil_header_search_icon'] = [
+    '#type' => 'textfield',
+    '#title' => t('Icon'),
+    '#description' => t('Fontawesome icon, shows on the left side of search widget.'),
+    '#default_value' => $theme_settings['bibliofil_header_search_icon'] ?? 'fas fa-search',
+  ];
+
+  $form['bibliofil_header']['bibliofil_header_search_settings']['bibliofil_header_search_placeholder'] = [
+    '#type' => 'textfield',
+    '#title' => t('Placeholder'),
+    '#description' => t('Search input placeholder.'),
+    '#default_value' => $theme_settings['bibliofil_header_search_placeholder'] ?? "Søk i våre databaser",
+  ];
+
+  $form['bibliofil_header']['bibliofil_header_search_settings']['bibliofil_header_search_cb'] = [
+    '#type' => 'fieldset',
+    '#title' => t('Close button'),
+    '#description' => t('Close button for search widget.'),
+  ];
+
+  $form['bibliofil_header']['bibliofil_header_search_settings']['bibliofil_header_search_cb']['cb_icon'] = [
+    '#type' => 'textfield',
+    '#title' => t('Icon'),
+    '#description' => t('Fontawesome icon for close search button.'),
+    '#default_value' => $theme_settings['cb_icon'] ?? 'fas fa-times',
+  ];
+
+  $form['bibliofil_header']['bibliofil_header_search_settings']['bibliofil_header_search_cb']['cb_title'] = [
+    '#type' => 'textfield',
+    '#title' => t('Title'),
+    '#description' => t('Title for close search button.'),
+    '#default_value' => $theme_settings['cb_title'] ?? 'Lukk',
+  ];
+
+  $form['bibliofil_header']['bibliofil_header_search_settings']['bibliofil_header_search_suggestions_view'] = [
+    '#type' => 'select',
+    '#title' => t('Suggestions view'),
+    '#description' => t('How the suggesters should be shown.'),
+    '#options' => [
+      'one-column' => t('One column'),
+      'two-columns' => t('Two columns'),
+    ],
+    '#default_value' => $theme_settings['bibliofil_header_search_suggestions_view'] ?? 'one-column',
+  ];
+
+  $form['bibliofil_header']['bibliofil_header_search_settings']['bibliofil_header_search_svs'] = [
+    '#type' => 'fieldset',
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+    '#title' => t('Suggestions view style'),
+    '#description' => t('The styles for suggestions view.'),
+    '#states' => [
+      'invisible' => [
+        'select[name="bibliofil_header_search_suggestions_view"]' => ['value' => 'one-column'],
+      ],
+    ],
+  ];
+
+  $form['bibliofil_header']['bibliofil_header_search_settings']['bibliofil_header_search_svs']['gap'] = [
+    '#type' => 'textfield',
+    '#title' => t('Gap'),
+    '#description' => t('Gap in pxels between columns. Default 84.'),
+    '#default_value' => $theme_settings['gap'] ?? '84',
+  ];
+
+  $form['bibliofil_header']['bibliofil_header_search_settings']['bibliofil_header_search_svs']['gap_calc'] = [
+    '#type' => 'textfield',
+    '#title' => t('Gap calculation'),
+    '#description' => t('The way how gap will be selected. Possible values: left-column, between, right-column. Default: left-column.'),
+    '#default_value' => $theme_settings['gap_calc'] ?? 'left-column',
+  ];
+
+  $form['bibliofil_header']['bibliofil_header_search_settings']['bibliofil_header_search_svs']['l_col_width'] = [
+    '#type' => 'textfield',
+    '#title' => t('Left column width'),
+    '#description' => t('The left column width in pixels. Default 50.'),
+    '#default_value' => $theme_settings['l_col_width'] ?? '50',
+  ];
+
+  $form['bibliofil_header']['bibliofil_header_search_settings']['bibliofil_header_search_svs']['r_col_width'] = [
+    '#type' => 'textfield',
+    '#title' => t('Right column width'),
+    '#description' => t('The right column width in pixels. Default 50.'),
+    '#default_value' => $theme_settings['r_col_width'] ?? '50',
+  ];
+
+  // suggestions
+  $form['bibliofil_header']['bibliofil_header_search_settings']['bibliofil_header_search_opac_suggestions'] = [
+    '#type' => 'checkbox',
+    '#title' => t('OPAC suggester'),
+    '#description' => t('Enable OPAC suggestions in header.'),
+    '#default_value' => $theme_settings['bibliofil_header_search_opac_suggestions'] ?? FALSE,
+  ];
+
+  $form['bibliofil_header']['bibliofil_header_search_settings']['bibliofil_header_search_editorial_suggestions'] = [
+    '#type' => 'checkbox',
+    '#title' => t('Editorial suggester'),
+    '#description' => t('Enable editorial suggestions in header.'),
+    '#default_value' => $theme_settings['bibliofil_header_search_editorial_suggestions'] ?? FALSE,
+  ];
+}
+
+function bibliofil_header_actions_add_more_add_one($form, &$form_state) {
+  $form_state['header_actions']++;
+  $form_state['rebuild'] = TRUE;
+}
+
+function bibliofil_header_actions_add_more_callback($form, $form_state) {
+  return $form['bibliofil_header']['bibliofil_header_actions'];
+}
+
+function bibliofil_header_custom_validate($form, &$form_state) {
+  // Handle file uploads.
+  $validators = ['file_validate_is_image' => []];
+
+  // Check for a new uploaded floating logo.
+  $file = file_save_upload('floating_logo_upload', $validators);
+  if (isset($file)) {
+    // File upload was attempted.
+    if ($file) {
+      // Put the temporary file in form_values so we can save it on submit.
+      $form_state['values']['floating_logo_upload'] = $file;
+    }
+    else {
+      // File upload failed.
+      form_set_error('floating_logo_upload', t('The logo could not be uploaded.'));
+    }
+  }
+
+  // Check for a new uploaded static logo.
+  $file = file_save_upload('static_logo_upload', $validators);
+  if (isset($file)) {
+    // File upload was attempted.
+    if ($file) {
+      // Put the temporary file in form_values so we can save it on submit.
+      $form_state['values']['static_logo_upload'] = $file;
+    }
+    else {
+      // File upload failed.
+      form_set_error('static_logo_upload', t('Static logo could not be uploaded.'));
+    }
+  }
+
+  if (!empty($form_state['values']['floating_logo_path'])) {
+    $path = _system_theme_settings_validate_path($form_state['values']['floating_logo_path']);
+    if (!$path) {
+      form_set_error('floating_logo_path', t('The custom logo path is invalid.'));
+    }
+  }
+
+  if (!empty($form_state['values']['static_logo_path'])) {
+    $path = _system_theme_settings_validate_path($form_state['values']['static_logo_path']);
+    if (!$path) {
+      form_set_error('static_logo_path', t('The custom logo path is invalid.'));
+    }
+  }
+}
+
+function bibliofil_header_custom_submit($form, &$form_state) {
+  // Exclude unnecessary elements before saving.
+  form_state_values_clean($form_state);
+  $values = $form_state['values'];
+
+  $bibliofil_header_actions = [];
+  foreach ($values['bibliofil_header_actions'] as $key => $action) {
+    $filtered_action = array_filter($action);
+
+    if (!empty($filtered_action)) {
+      $bibliofil_header_actions[] = $filtered_action;
+    }
+  }
+  $values['bibliofil_header_actions'] = $bibliofil_header_actions;
+
+  // Extract the name of the theme from the submitted form values, then remove
+  // it from the array so that it is not saved as part of the variable.
+  $key = $values['var'];
+  unset($values['var']);
+
+  // If the user uploaded a new logo or favicon, save it to a permanent location
+  // and use it in place of the default theme-provided file.
+  if (!empty($values['floating_logo_upload'])) {
+    $file = $values['floating_logo_upload'];
+    unset($values['floating_logo_upload']);
+    $filename = file_unmanaged_copy($file->uri);
+    $values['floating_logo_path'] = $filename;
+  }
+
+  if (!empty($values['static_logo_upload'])) {
+    $file = $values['static_logo_upload'];
+    unset($values['static_logo_upload']);
+    $filename = file_unmanaged_copy($file->uri);
+    $values['static_logo_path'] = $filename;
+  }
+
+  // If the user entered a path relative to the system files directory for
+  // a logo or favicon, store a public:// URI so the theme system can handle it.
+  if (!empty($values['floating_logo_path'])) {
+    $values['floating_logo_path'] = _system_theme_settings_validate_path($values['floating_logo_path']);
+  }
+
+  if (!empty($values['static_logo_path'])) {
+    $values['static_logo_path'] = _system_theme_settings_validate_path($values['static_logo_path']);
+  }
+
+  variable_set($key, $values);
+  cache_clear_all();
+}
+
+/**
+ * Implements hook_preprocess_HOOK().
+ */
+function bibliofil_header_preprocess_html(&$variables) {
+  $path_to_consumer_config = url('bibliofil-header/bibliofil-header.js', ['absolute' => TRUE]);
+  $config_server_url = theme_get_setting('bibliofil_header_config_service_url', 'bibliofil');
+  $path_to_config_js = $config_server_url . '/src/config.js';
+  $main_data = $path_to_config_js . '?consumer_config=' . $path_to_consumer_config;
+
+  $require_js_path = $config_server_url . '/require.min.js';
+
+  $markup = '<script src="' . $require_js_path . '" data-main="' . $main_data . '"></script>';
+  $variables['page']['page_bottom'][] = [
+    '#markup' => $markup,
+    '#cache' => FALSE,
+  ];
+}
