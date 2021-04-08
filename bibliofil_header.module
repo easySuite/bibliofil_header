@@ -4,26 +4,7 @@
  * @file
  */
 
-/**
- * Implements hook_menu().
- */
-function bibliofil_header_menu() {
-  $items['bibliofil-header/bibliofil-header'] = [
-    'title' => 'Bibliofil header configuration',
-    'page callback' => 'bibliofil_header_config_js',
-    'access callback' => TRUE,
-    'type' => MENU_NORMAL_ITEM,
-  ];
-
-  $items['bibliofil-header/bibliofil-header.js'] = [
-    'title' => 'Bibliofil header configuration',
-    'page callback' => 'bibliofil_header_config_js',
-    'access callback' => TRUE,
-    'type' => MENU_NORMAL_ITEM,
-  ];
-
-  return $items;
-}
+const BIBLIOFIL_HEADER_JS_PATH = 'public://bibliofil-header/bibliofil-header.js';
 
 /**
  * Implements hook_theme().
@@ -50,12 +31,16 @@ function bibliofil_header_theme($existing, $type, $theme, $path) {
   ];
 }
 
+/**
+ * Generate configuration JS file body.
+ *
+ * @return string
+ *   Built file's body.
+ * @throws \Exception
+ */
 function bibliofil_header_config_js() {
   global $base_url;
-  $theme_settings = variable_get('theme_bibliofil_settings', NULL);
-
-  drupal_page_is_cacheable(FALSE);
-  drupal_add_http_header('Content-Type', 'application/javascript');
+  $theme_settings = variable_get('theme_bibliofil_settings');
 
   // Menu links.
   $menu_links = menu_load_links('bibliofil-header-menu');
@@ -82,7 +67,7 @@ function bibliofil_header_config_js() {
     $search_settings['type'] = 'isFrontPage ? "inline" : "foldable",';
   }
   else {
-    $search_settings['type'] = $theme_settings['bibliofil_header_search_type'];
+    $search_settings['type'] = '"' . $theme_settings['bibliofil_header_search_type'] . '", ';
   }
 
   $search_settings['icon'] = $theme_settings['bibliofil_header_search_icon'];
@@ -139,10 +124,10 @@ function bibliofil_header_config_js() {
   // Logos.
   $logos = [];
   if (!empty($theme_settings['floating_logo_path'])) {
-    $logos['floating'] = file_create_url($theme_settings['floating_logo_path']);
+    $logos['floating'] = file_create_url('public://' . $theme_settings['floating_logo_path']);
   }
   if (!empty($theme_settings['static_logo_path'])) {
-    $logos['static'] = file_create_url($theme_settings['static_logo_path']);
+    $logos['static'] = file_create_url('public://' . $theme_settings['static_logo_path']);
   }
   $logos = drupal_json_encode($logos);
 
@@ -170,7 +155,7 @@ function bibliofil_header_config_js() {
     'actions' => $header_actions,
   ];
 
-  echo theme('bibliofil_header_wrapper', ['data' => $export]);
+  return theme('bibliofil_header_wrapper', ['data' => $export]);
 }
 
 /**
@@ -250,6 +235,13 @@ function _bibliofil_header_general_settings_form(&$form, &$form_state, $theme_se
     '#title' => t('Skin'),
     '#description' => t('Optional, name of the predefined skin. Default disabled. Possble values: "bibliofil".'),
     '#default_value' => $theme_settings['bibliofil_header_skin'] ?? 'bibliofil',
+  ];
+
+  $form['bibliofil_header']['general']['bibliofil_header_preload_libraries'] = [
+    '#type' => 'checkbox',
+    '#title' => t('Preload libraries'),
+    '#description' => t('Force loading of <strong>Lightweight*</strong> libraries'),
+    '#default_value' => $theme_settings['bibliofil_header_preload_libraries'] ?? 1,
   ];
 }
 
@@ -612,6 +604,8 @@ function bibliofil_header_custom_validate($form, &$form_state) {
 
 /**
  * Custom theme settings form submit handler.
+ *
+ * @throws \Exception
  */
 function bibliofil_header_custom_submit($form, &$form_state) {
   // Exclude unnecessary elements before saving.
@@ -659,6 +653,16 @@ function bibliofil_header_custom_submit($form, &$form_state) {
     $values['static_logo_path'] = _system_theme_settings_validate_path($values['static_logo_path']);
   }
 
+  // Build JS config markup.
+  $generated_markup = bibliofil_header_config_js();
+
+  // Prepare JS file for creation and writing.
+  $pub_path = 'public://bibliofil-header';
+  if (!file_prepare_directory($pub_path, FILE_CREATE_DIRECTORY)) {
+    watchdog('bibliofil-header', t('Problem writing in file directory'), 'error');
+  }
+  file_put_contents(BIBLIOFIL_HEADER_JS_PATH, $generated_markup);
+
   variable_set($key, $values);
   cache_clear_all();
 }
@@ -667,16 +671,41 @@ function bibliofil_header_custom_submit($form, &$form_state) {
  * Implements hook_preprocess_HOOK().
  */
 function bibliofil_header_preprocess_html(&$variables) {
-  $path_to_consumer_config = url('bibliofil-header/bibliofil-header.js', ['absolute' => TRUE]);
+  $path_to_consumer_config = file_create_url(BIBLIOFIL_HEADER_JS_PATH);
   $config_server_url = theme_get_setting('bibliofil_header_config_service_url', 'bibliofil');
   $path_to_config_js = $config_server_url . '/src/config.js';
   $main_data = $path_to_config_js . '?consumer_config=' . $path_to_consumer_config;
 
   $require_js_path = $config_server_url . '/require.min.js';
 
-  $markup = '<script src="' . $require_js_path . '" data-main="' . $main_data . '"></script>';
-  $variables['page']['page_bottom'][] = [
-    '#markup' => $markup,
-    '#cache' => FALSE,
-  ];
+  $markup = '<script data-main="' . $main_data . '"  src="' . $require_js_path . '"></script>';
+
+  drupal_add_js('//--><!]]></script>' . $markup . '<!--//--><![CDATA[//><!--', [
+    'type' => 'inline',
+    'scope' => 'footer',
+    'weight' => 100,
+    'cache' => FALSE,
+  ]);
+
+  if (theme_get_setting('bibliofil_header_preload_libraries', 'bibliofil')) {
+    drupal_add_js('//storage.easyting.dk/bibliofil/header/latest/dist/lightweight-header-polyfills.js', 'external');
+    drupal_add_js('//storage.easyting.dk/bibliofil/header/latest/dist/lightweight-header.js', 'external');
+    drupal_add_js('//storage.easyting.dk/bibliofil/header/latest/dist/lightweight-suggester--bibliotek-systemer.js', 'external');
+    drupal_add_js('//storage.easyting.dk/bibliofil/header/latest/dist/lightweight-suggester--autocomplete.min.js', 'external');
+  }
+}
+
+/**
+ * Implements hook_url_outbound_alter().
+ */
+function bibliofil_header_url_outbound_alter(&$path, &$options, $original_path) {
+  // Listed libraries are not present on drupal side, so redirect request to
+  // config storage server.
+  $paths = ['lib/get-url-query.js', 'lib/load-css.js', 'config-builder.js'];
+
+  if (in_array($path, $paths)) {
+    $config_server_url = theme_get_setting('bibliofil_header_config_service_url', 'bibliofil');
+    $path = $config_server_url . '/src/' . $path;
+    drupal_goto($path, ['external' => TRUE]);
+  }
 }

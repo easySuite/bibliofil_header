@@ -17,15 +17,14 @@ define(function() {
         client: "<?php print $data['client']; ?>",
         storageBaseUrl: "<?php print $data['storageBaseUrl']; ?>",
         suggestionsDomain: "<?php print $data['suggestionsDomain']; ?>",
-        header: function(options) {
+        header: function() {
             return {
-                skin: "<?php print $data['skin']; ?>",
-                logo: <?php print $data['logos']; ?>,
-                links: <?php echo $data['links']; ?>,
-                actions: <?php print $data['actions']; ?>,
-                search: <?php print $data['search']; ?>
+                skin: "<?php print $data['skin'] ?? '' ?>",
+                logo: <?php print $data['logos'] ?? [] ?>,
+                links: <?php echo $data['links'] ?? []; ?>,
+                actions: <?php print $data['actions'] ?? []; ?>,
+                search: <?php print $data['search'] ?? []; ?>
             }
         },
-
     };
 });
