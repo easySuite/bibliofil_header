@@ -701,11 +701,28 @@ function bibliofil_header_preprocess_html(&$variables) {
 function bibliofil_header_url_outbound_alter(&$path, &$options, $original_path) {
   // Listed libraries are not present on drupal side, so redirect request to
   // config storage server.
-  $paths = ['lib/get-url-query.js', 'lib/load-css.js', 'config-builder.js'];
 
-  if (in_array($path, $paths)) {
-    $config_server_url = theme_get_setting('bibliofil_header_config_service_url', 'bibliofil');
-    $path = $config_server_url . '/src/' . $path;
-    drupal_goto($path, ['external' => TRUE]);
+  // @TODO: Re-think this and find better solution.
+  $lib_paths = ['lib/get-url-query.js', 'lib/load-css.js', 'config-builder.js'];
+  // bibliotek/lib/get-url-query.js
+  $config_server_url = theme_get_setting('bibliofil_header_config_service_url', 'bibliofil');
+  $escaped_cf_server_url = str_replace('/',  '\/', $config_server_url);
+
+  foreach ($lib_paths as $lib) {
+    $escaped_lib_path = str_replace('/', '\/', $lib);
+
+    // Drupal makes internal redirect to config storage server, in this case it
+    // is looping the request and this fails. In preg_match find the path which
+    // routes the external request to be called and called again, and ensure
+    // that we go forward without this.
+    preg_match('/'.$escaped_cf_server_url .'(?!'. $escaped_lib_path.')/', $path, $matches);
+
+    if (empty($matches)) {
+      // Go with internal URL's.
+      if (preg_match("/$escaped_lib_path/", $path) === 1) {
+        $path = $config_server_url . '/src/' . $lib;
+        drupal_goto($path, ['external' => TRUE]);
+      }
+    }
   }
 }
