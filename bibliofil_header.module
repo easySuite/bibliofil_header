@@ -671,27 +671,29 @@ function bibliofil_header_custom_submit($form, &$form_state) {
  * Implements hook_preprocess_HOOK().
  */
 function bibliofil_header_preprocess_html(&$variables) {
-  $path_to_consumer_config = file_create_url(BIBLIOFIL_HEADER_JS_PATH);
-  $config_server_url = theme_get_setting('bibliofil_header_config_service_url', 'bibliofil');
-  $path_to_config_js = $config_server_url . '/src/config.js';
-  $main_data = $path_to_config_js . '?consumer_config=' . $path_to_consumer_config;
+  if (strpos(request_uri(), 'admin') === FALSE) {
+    $path_to_consumer_config = file_create_url(BIBLIOFIL_HEADER_JS_PATH);
+    $config_server_url = theme_get_setting('bibliofil_header_config_service_url', 'bibliofil');
+    $path_to_config_js = $config_server_url . '/src/config.js';
+    $main_data = $path_to_config_js . '?consumer_config=' . $path_to_consumer_config;
 
-  $require_js_path = $config_server_url . '/require.min.js';
+    $require_js_path = $config_server_url . '/require.min.js';
 
-  $markup = '<script data-main="' . $main_data . '"  src="' . $require_js_path . '"></script>';
+    $markup = '<script data-main="' . $main_data . '"  src="' . $require_js_path . '"></script>';
 
-  drupal_add_js('//--><!]]></script>' . $markup . '<!--//--><![CDATA[//><!--', [
-    'type' => 'inline',
-    'scope' => 'footer',
-    'weight' => 100,
-    'cache' => FALSE,
-  ]);
+    drupal_add_js('//--><!]]></script>' . $markup . '<!--//--><![CDATA[//><!--', [
+      'type' => 'inline',
+      'scope' => 'footer',
+      'weight' => 100,
+      'cache' => FALSE,
+    ]);
 
-  if (theme_get_setting('bibliofil_header_preload_libraries', 'bibliofil')) {
-    drupal_add_js('//storage.easyting.dk/bibliofil/header/latest/dist/lightweight-header-polyfills.js', 'external');
-    drupal_add_js('//storage.easyting.dk/bibliofil/header/latest/dist/lightweight-header.js', 'external');
-    drupal_add_js('//storage.easyting.dk/bibliofil/header/latest/dist/lightweight-suggester--bibliotek-systemer.js', 'external');
-    drupal_add_js('//storage.easyting.dk/bibliofil/header/latest/dist/lightweight-suggester--autocomplete.min.js', 'external');
+    if (theme_get_setting('bibliofil_header_preload_libraries', 'bibliofil')) {
+      drupal_add_js('//storage.easyting.dk/bibliofil/header/latest/dist/lightweight-header-polyfills.js', 'external');
+      drupal_add_js('//storage.easyting.dk/bibliofil/header/latest/dist/lightweight-header.js', 'external');
+      drupal_add_js('//storage.easyting.dk/bibliofil/header/latest/dist/lightweight-suggester--bibliotek-systemer.js', 'external');
+      drupal_add_js('//storage.easyting.dk/bibliofil/header/latest/dist/lightweight-suggester--autocomplete.min.js', 'external');
+    }
   }
 }
 
