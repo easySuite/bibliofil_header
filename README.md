@@ -5,9 +5,12 @@ project.
 
 Once enabled and configured, a script tag will be added into the site's markup which will load custom header:
 
-`<script src="http://storage.inlead.dk/bibliofil/config/require.min.js" main-data="http://storage.inlead.dk/bibliofil/config/lib/config.js?consumer_config=<bibliofil_instance_url>/bibliofil-header/bibliofil-header.js"></script>`
+`<script data-main="http://storage.easyting.dk/bibliofil/config/src/config.js?consumer_config=<bibliofil_instance_url>/sites/default/files/bibliofil-header/bibliofil-header.js" src="http://storage.easyting.dk/bibliofil/config/require.min.js"></script>`
 
 **!!! Note:** Same string should be placed on the OPAC instance.
+
+The `<bibliofil_instance_url>/sites/default/files/bibliofil-header/bibliofil-header.js` file will be automatically
+created/updated on theme settings form submit.
 
 On module enable, the "Bibliofil" theme settings form will be extended with "Bibliofil header" section.
 Also, when module is enabled, new menu "Bibliofil header" will be created where should be stored menu links which will
@@ -31,7 +34,7 @@ Bibliofil header section contains next groups:
   sections containing uid, icon, title, href fields and also here can be inserted functions which are called `onClick`
   and `onMount` methods call.
 - Search settings - this section contains settings related to search box display and functionality. Here can be
-  configured the how the search box is displayed (inline/foldable/auto), icon shown on the left side of widget, widget's
+  configured the way how the search box is displayed (inline/foldable/auto), icon shown on the left side of widget, widget's
   placeholder, icon and text appearing on close button. Also, here is realized control of suggestion functionality so you
   can select the layout of suggestions, configure display style and enable or disable needed suggesters.
 
