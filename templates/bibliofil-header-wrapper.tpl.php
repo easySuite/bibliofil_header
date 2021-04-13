@@ -17,7 +17,7 @@ define(function() {
         client: "<?php print $data['client']; ?>",
         storageBaseUrl: "<?php print $data['storageBaseUrl']; ?>",
         suggestionsDomain: "<?php print $data['suggestionsDomain']; ?>",
-        header: function() {
+        header: function(options) {
             return {
                 skin: "<?php print $data['skin'] ?? '' ?>",
                 logo: <?php print $data['logos'] ?? [] ?>,

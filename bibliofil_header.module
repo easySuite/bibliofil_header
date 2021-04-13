@@ -90,7 +90,7 @@ function bibliofil_header_config_js() {
   $search_settings['suggestions'] = [];
   if (!empty($theme_settings['bibliofil_header_search_opac_suggestions'])) {
     $opac_suggestion = [];
-    $opac_suggestion['suggester'] = 'new window.LightweightSuggester({baseUrl: "' . $opac_url . '", query: {"instans": "m2-cms"}})';
+    $opac_suggestion['suggester'] = 'new options.prebuiltDependencies.LightweightEditorialSearch({baseUrl: "' . $opac_url . '", query: {"instans": "m2-cms"}})';
     $opac_suggestion['minimalQueryLength'] = 3;
     $opac_suggestion['inputTimeout'] = 250;
     $opac_suggestion['materials'] = [
@@ -109,7 +109,7 @@ function bibliofil_header_config_js() {
 
   if (!empty($theme_settings['bibliofil_header_search_editorial_suggestions'])) {
     $editorial_suggestions = [];
-    $editorial_suggestions['suggester'] = 'new window.LightweightAutocomplete({baseUrl: "' . $theme_settings['bibliofil_header_client_base_url'] . '/ting/autocomplete/"})';
+    $editorial_suggestions['suggester'] = 'new options.prebuiltDependencies.LightweightAutocomplete({baseUrl: "' . $theme_settings['bibliofil_header_client_base_url'] . '/ting/autocomplete/"})';
     $editorial_suggestions['minimalQueryLength'] = 3;
     $editorial_suggestions['inputTimeout'] = 250;
     $editorial_suggestions['editorial'] = [
@@ -235,13 +235,6 @@ function _bibliofil_header_general_settings_form(&$form, &$form_state, $theme_se
     '#title' => t('Skin'),
     '#description' => t('Optional, name of the predefined skin. Default disabled. Possble values: "bibliofil".'),
     '#default_value' => $theme_settings['bibliofil_header_skin'] ?? 'bibliofil',
-  ];
-
-  $form['bibliofil_header']['general']['bibliofil_header_preload_libraries'] = [
-    '#type' => 'checkbox',
-    '#title' => t('Preload libraries'),
-    '#description' => t('Force loading of <strong>Lightweight*</strong> libraries'),
-    '#default_value' => $theme_settings['bibliofil_header_preload_libraries'] ?? 1,
   ];
 }
 
@@ -675,7 +668,7 @@ function bibliofil_header_preprocess_html(&$variables) {
     $path_to_consumer_config = file_create_url(BIBLIOFIL_HEADER_JS_PATH);
     $config_server_url = theme_get_setting('bibliofil_header_config_service_url', 'bibliofil');
     $path_to_config_js = $config_server_url . '/src/config.js';
-    $main_data = $path_to_config_js . '?consumer_config=' . $path_to_consumer_config;
+    $main_data = $path_to_config_js . '?consumer_config=' . urlencode($path_to_consumer_config);
 
     $require_js_path = $config_server_url . '/require.min.js';
 
@@ -687,44 +680,5 @@ function bibliofil_header_preprocess_html(&$variables) {
       'weight' => 100,
       'cache' => FALSE,
     ]);
-
-    if (theme_get_setting('bibliofil_header_preload_libraries', 'bibliofil')) {
-      drupal_add_js('//storage.easyting.dk/bibliofil/header/latest/dist/lightweight-header-polyfills.js', 'external');
-      drupal_add_js('//storage.easyting.dk/bibliofil/header/latest/dist/lightweight-header.js', 'external');
-      drupal_add_js('//storage.easyting.dk/bibliofil/header/latest/dist/lightweight-suggester--bibliotek-systemer.js', 'external');
-      drupal_add_js('//storage.easyting.dk/bibliofil/header/latest/dist/lightweight-suggester--autocomplete.min.js', 'external');
-    }
-  }
-}
-
-/**
- * Implements hook_url_outbound_alter().
- */
-function bibliofil_header_url_outbound_alter(&$path, &$options, $original_path) {
-  // Listed libraries are not present on drupal side, so redirect request to
-  // config storage server.
-
-  // @TODO: Re-think this and find better solution.
-  $lib_paths = ['lib/get-url-query.js', 'lib/load-css.js', 'config-builder.js'];
-  // bibliotek/lib/get-url-query.js
-  $config_server_url = theme_get_setting('bibliofil_header_config_service_url', 'bibliofil');
-  $escaped_cf_server_url = str_replace('/',  '\/', $config_server_url);
-
-  foreach ($lib_paths as $lib) {
-    $escaped_lib_path = str_replace('/', '\/', $lib);
-
-    // Drupal makes internal redirect to config storage server, in this case it
-    // is looping the request and this fails. In preg_match find the path which
-    // routes the external request to be called and called again, and ensure
-    // that we go forward without this.
-    preg_match('/'.$escaped_cf_server_url .'(?!'. $escaped_lib_path.')/', $path, $matches);
-
-    if (empty($matches)) {
-      // Go with internal URL's.
-      if (preg_match("/$escaped_lib_path/", $path) === 1) {
-        $path = $config_server_url . '/src/' . $lib;
-        drupal_goto($path, ['external' => TRUE]);
-      }
-    }
   }
 }
