@@ -90,7 +90,7 @@ function bibliofil_header_config_js() {
   $search_settings['suggestions'] = [];
   if (!empty($theme_settings['bibliofil_header_search_opac_suggestions'])) {
     $opac_suggestion = [];
-    $opac_suggestion['suggester'] = 'new options.prebuiltDependencies.LightweightEditorialSearch({baseUrl: "' . $opac_url . '", query: {"instans": "m2-cms"}})';
+    $opac_suggestion['suggester'] = 'new options.dependencies[0]({baseUrl: "' . $opac_url . '", query: {"instans": "m2-cms"}})';
     $opac_suggestion['minimalQueryLength'] = 3;
     $opac_suggestion['inputTimeout'] = 250;
     $opac_suggestion['materials'] = [
