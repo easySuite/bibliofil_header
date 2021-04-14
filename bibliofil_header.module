@@ -49,7 +49,7 @@ function bibliofil_header_config_js() {
   foreach ($menu_links as $item) {
     $menu_items[] = [
       'title' => $item['link_title'],
-      'href' => '/' . $item['link_path'],
+      'href' => $theme_settings['bibliofil_header_client_base_url'] . '/' . $item['link_path'],
     ];
   }
 
