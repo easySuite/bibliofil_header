@@ -47,10 +47,12 @@ function bibliofil_header_config_js() {
 
   $menu_items = [];
   foreach ($menu_links as $item) {
-    $menu_items[] = [
-      'title' => $item['link_title'],
-      'href' => $theme_settings['bibliofil_header_client_base_url'] . '/' . $item['link_path'],
-    ];
+    if ($item['hidden'] !== '1') {
+      $menu_items[] = [
+        'title' => $item['link_title'],
+        'href' => $theme_settings['bibliofil_header_client_base_url'] . '/' . $item['link_path'],
+      ];
+    }
   }
 
   $links = drupal_json_encode($menu_items);
@@ -123,11 +125,11 @@ function bibliofil_header_config_js() {
 
   // Logos.
   $logos = [];
-  if (!empty($theme_settings['floating_logo_path'])) {
-    $logos['floating'] = file_create_url('public://' . $theme_settings['floating_logo_path']);
+  if (!empty($theme_settings['floating_logo_url'])) {
+    $logos['floating'] = $theme_settings['floating_logo_url'];
   }
-  if (!empty($theme_settings['static_logo_path'])) {
-    $logos['static'] = file_create_url('public://' . $theme_settings['static_logo_path']);
+  if (!empty($theme_settings['static_logo_url'])) {
+    $logos['static'] = $theme_settings['static_logo_url'];
   }
   $logos = drupal_json_encode($logos);
 
@@ -335,14 +337,14 @@ function _bibliofil_header_actions_settings_form(&$form, &$form_state, $theme_se
     $form_state['header_actions'] = 1;
   }
 
-  $count = (int) count($actions);
+  $count = count($actions);
 
   for ($i = 0; $i < $count + 1; $i++) {
     $form['bibliofil_header']['bibliofil_header_actions'][$i] = [
       '#type' => 'fieldset',
       '#title' => empty($actions[$i]['uid']) ? t('Action') : t('Action \'@uid\'', ['@uid' => $actions[$i]['uid']]),
       '#collapsible' => TRUE,
-      '#collapsed' => empty($actions[$i]['uid']) ? FALSE : TRUE,
+      '#collapsed' => !empty($actions[$i]['uid']),
     ];
 
     $form['bibliofil_header']['bibliofil_header_actions'][$i]['uid'] = [
@@ -640,12 +642,45 @@ function bibliofil_header_custom_submit($form, &$form_state) {
   // a logo or favicon, store a public:// URI so the theme system can handle it.
   if (!empty($values['floating_logo_path'])) {
     $values['floating_logo_path'] = _system_theme_settings_validate_path($values['floating_logo_path']);
+    $values['floating_logo_url'] = file_create_url($values['floating_logo_path']);
   }
 
   if (!empty($values['static_logo_path'])) {
     $values['static_logo_path'] = _system_theme_settings_validate_path($values['static_logo_path']);
+    $values['static_logo_url'] = file_create_url($values['static_logo_path']);
   }
 
+  variable_set($key, $values);
+  bibliofil_header_write_config();
+  cache_clear_all();
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function bibliofil_header_form_alter(&$form, &$form_state, $form_id) {
+  if (($form_id === 'menu_edit_item' || $form_id === 'menu_overview_form') && end($form_state['build_info']['args'])['menu_name'] === 'bibliofil-header-menu') {
+    $form['#submit'][] = 'bibliofil_header_menu_forms_submit';
+  }
+}
+
+/**
+ * Custom form submit.
+ *
+ * @throws \Exception
+ */
+function bibliofil_header_menu_forms_submit(&$form, $form_state) {
+  // Rebuild config file on menu item add or other manipulations on Bibliofil
+  // header menu.
+  bibliofil_header_write_config();
+}
+
+/**
+ * Write header config into file.
+ *
+ * @throws \Exception
+ */
+function bibliofil_header_write_config() {
   // Build JS config markup.
   $generated_markup = bibliofil_header_config_js();
 
@@ -655,9 +690,6 @@ function bibliofil_header_custom_submit($form, &$form_state) {
     watchdog('bibliofil-header', t('Problem writing in file directory'), 'error');
   }
   file_put_contents(BIBLIOFIL_HEADER_JS_PATH, $generated_markup);
-
-  variable_set($key, $values);
-  cache_clear_all();
 }
 
 /**

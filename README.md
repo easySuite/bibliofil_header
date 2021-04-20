@@ -29,7 +29,7 @@ before the standard theme settings.
 Bibliofil header section contains next groups:
 - General settings - Contains settings related to communication with external libraries and other stuff like app skin,
   client, etc.
-- Logos - allows to upload static and floating logo images used in header.
+- Logos - allows uploading of static and floating logo images used in header.
 - Actions - lists the settings of action buttons displayed on the right side of custom header. This represents a set of
   sections containing uid, icon, title, href fields and also here can be inserted functions which are called `onClick`
   and `onMount` methods call.
