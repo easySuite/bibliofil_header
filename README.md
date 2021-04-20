@@ -33,6 +33,31 @@ Bibliofil header section contains next groups:
 - Actions - lists the settings of action buttons displayed on the right side of custom header. This represents a set of
   sections containing uid, icon, title, href fields and also here can be inserted functions which are called `onClick`
   and `onMount` methods call.
+  - Actions snippets:
+    - "Search" action onClick:
+      `if (isFrontPage) {
+        options.getInstance()._searchInputEl.focus();
+       } else {
+        options.getInstance().toggleSearch();
+       }`
+
+    - "Search" action `onMount`:
+        `if (!isFrontPage) {
+          const lightweightHeader = new options.prebuiltDependencies.LightweightHeader();
+          lightweightHeader.on("search:open", function () {
+            lightweightHeader.updateByUID("search", {
+              attrs: {
+                class: "lightweight-header--active"
+              }
+            });
+          });
+          lightweightHeader.on("search:close", function () {
+            lightweightHeader.updateByUID("search", {
+              attrs: { class: "" }
+            });
+          });
+        }
+        `
 - Search settings - this section contains settings related to search box display and functionality. Here can be
   configured the way how the search box is displayed (inline/foldable/auto), icon shown on the left side of widget, widget's
   placeholder, icon and text appearing on close button. Also, here is realized control of suggestion functionality so you
